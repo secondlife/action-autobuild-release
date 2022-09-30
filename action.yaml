@@ -1,0 +1,15 @@
+name: Autobuild Release
+description: Publish autobuild artifacts to GitHub releases
+
+inputs:
+  public:
+    type: boolean
+    description: Whether these artifacts are public or not
+    default: false
+  token:
+    description: "Authorized Github Personal Acess Token. Defaults to GITHUB_TOKEN"
+    default: ${{ github.token }}
+
+runs:
+  using: node16
+  main: dist/index.js
