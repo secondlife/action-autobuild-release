@@ -16386,13 +16386,15 @@ const util = __importStar(__nccwpck_require__(2629));
 function readResults(filename) {
     const results = JSON.parse((0, fs_1.readFileSync)(filename, "utf8"));
     return {
-        filename: results["autobuild_package_filename"],
-        name: results["autobuild_package_name"],
-        clean: results["autobuild_package_clean"],
-        metadata: results["autobuild_package_metadata"],
-        platform: results["autobuild_package_platform"],
-        md5: results["autobuild_package_md5"],
         blake2b: results["autobuild_package_blake2b"],
+        clean: results["autobuild_package_clean"],
+        filename: results["autobuild_package_filename"],
+        md5: results["autobuild_package_md5"],
+        metadata: results["autobuild_package_metadata"],
+        name: results["autobuild_package_name"],
+        platform: results["autobuild_package_platform"],
+        sha1: results["autobuild_package_sha1"],
+        sha256: results["autobuild_package_sha256"],
     };
 }
 /**
@@ -16473,7 +16475,7 @@ exports.uploadArtifact = uploadArtifact;
 const NOTES_HEADER = "## :dizzy: Installation instructions";
 function generateNotes(config, uploads) {
     const creds = config.public_release ? "" : " creds=github";
-    const autobuildInstallCommands = uploads.map(u => `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash=${u.package.md5}${creds}`).join("\n");
+    const autobuildInstallCommands = uploads.map(u => `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`).join("\n");
     return `${NOTES_HEADER}
   \`\`\`text
   ${autobuildInstallCommands}

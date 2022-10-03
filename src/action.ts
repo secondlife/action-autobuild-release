@@ -44,6 +44,8 @@ export interface AutobuildResults {
   platform: string 
   md5: string
   blake2b: string
+  sha1: string
+  sha256: string
 }
 
 export interface UploadResult {
@@ -55,13 +57,15 @@ export interface UploadResult {
 function readResults(filename: string): AutobuildResults {
   const results = JSON.parse(readFileSync(filename, "utf8"))
   return {
-    filename: results["autobuild_package_filename"],
-    name: results["autobuild_package_name"],
-    clean: results["autobuild_package_clean"],
-    metadata: results["autobuild_package_metadata"],
-    platform: results["autobuild_package_platform"],
-    md5: results["autobuild_package_md5"],
     blake2b: results["autobuild_package_blake2b"],
+    clean: results["autobuild_package_clean"],
+    filename: results["autobuild_package_filename"],
+    md5: results["autobuild_package_md5"],
+    metadata: results["autobuild_package_metadata"],
+    name: results["autobuild_package_name"],
+    platform: results["autobuild_package_platform"],
+    sha1: results["autobuild_package_sha1"],
+    sha256: results["autobuild_package_sha256"],
   }
 }
 
@@ -153,7 +157,7 @@ export function generateNotes(config: Config, uploads: UploadResult[]): string {
   const creds = config.public_release ? "" : " creds=github"
 
   const autobuildInstallCommands = uploads.map(u =>
-    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash=${u.package.md5}${creds}`
+    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
   ).join("\n")
 
   return `${NOTES_HEADER}
