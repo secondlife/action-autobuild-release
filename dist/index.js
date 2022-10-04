@@ -16443,7 +16443,6 @@ function uploadArtifact(config, gh, release, artifact) {
         const packageType = (0, mime_1.getType)(packagePath) || "application/octet-stream";
         if (!(0, fs_1.existsSync)(packagePath)) {
             throw Error(`Missing ${packagePath}`);
-            return null;
         }
         if (existingAsset) {
             console.log(`♻️ Deleting previously uploaded asset ${name}...`);
@@ -16465,6 +16464,7 @@ function uploadArtifact(config, gh, release, artifact) {
             data: (0, fs_1.readFileSync)(packagePath), // Yikes, https://github.com/octokit/octokit.js/issues/2086
         });
         return {
+            filename: name,
             package: pkg,
             asset: res.data,
             mermaidGraphFile: mermaidGraphFile,
@@ -16476,10 +16476,33 @@ const NOTES_HEADER = "## :dizzy: Installation instructions";
 function generateNotes(config, uploads) {
     const creds = config.public_release ? "" : " creds=github";
     const autobuildInstallCommands = uploads.map(u => `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`).join("\n");
+    const digests = uploads.map(u => `${u.package.sha1}  ${u.package.filename}`).join("\n");
+    let graphs = [];
+    for (const u of uploads) {
+        const mermaid = (0, fs_1.readFileSync)(u.mermaidGraphFile);
+        graphs.push(`#### ${u.package.platform}
+    \`\`\`mermaid
+    ${mermaid}
+    \`\`\``);
+    }
     return `${NOTES_HEADER}
   \`\`\`text
   ${autobuildInstallCommands}
-  \`\`\``;
+  \`\`\`
+  
+  #### SHA-1 digests
+
+  \`\`\`text
+  ${digests}
+  \`\`\`
+
+  ### Dependencies 
+
+  <details>
+    <summary>Click to expand</summary>
+
+    ${graphs}
+  </details>`;
 }
 exports.generateNotes = generateNotes;
 /**

@@ -52,6 +52,7 @@ export interface UploadResult {
   package: AutobuildResults
   asset: ReleaseAsset
   mermaidGraphFile: string
+  filename: string
 }
 
 function readResults(filename: string): AutobuildResults {
@@ -120,7 +121,6 @@ export async function uploadArtifact(
 
   if (!existsSync(packagePath)) {
     throw Error(`Missing ${packagePath}`)
-    return null
   }
 
   if (existingAsset) {
@@ -145,6 +145,7 @@ export async function uploadArtifact(
   })
 
   return {
+    filename: name,
     package: pkg,
     asset: res.data,
     mermaidGraphFile: mermaidGraphFile,
@@ -160,10 +161,37 @@ export function generateNotes(config: Config, uploads: UploadResult[]): string {
     `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
   ).join("\n")
 
+  const digests = uploads.map(u =>
+      `${u.package.sha1}  ${u.filename}`
+  ).join("\n")
+
+  let graphs: string[] = []
+  for (const u of uploads) {
+    const mermaid = readFileSync(u.mermaidGraphFile)
+    graphs.push(`#### ${u.package.platform}
+    \`\`\`mermaid
+    ${mermaid}
+    \`\`\``)
+  }
+
   return `${NOTES_HEADER}
   \`\`\`text
   ${autobuildInstallCommands}
-  \`\`\``
+  \`\`\`
+  
+  #### SHA-1 digests
+
+  \`\`\`text
+  ${digests}
+  \`\`\`
+
+  ### Dependencies 
+
+  <details>
+    <summary>Click to expand</summary>
+
+    ${graphs}
+  </details>`
 }
 
 /**
