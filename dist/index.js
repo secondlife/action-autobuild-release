@@ -7003,6 +7003,73 @@ var isArray = Array.isArray || function (xs) {
 
 /***/ }),
 
+/***/ 5281:
+/***/ ((module) => {
+
+"use strict";
+
+
+function dedent(strings) {
+
+  var raw = void 0;
+  if (typeof strings === "string") {
+    // dedent can be used as a plain function
+    raw = [strings];
+  } else {
+    raw = strings.raw;
+  }
+
+  // first, perform interpolation
+  var result = "";
+  for (var i = 0; i < raw.length; i++) {
+    result += raw[i].
+    // join lines when there is a suppressed newline
+    replace(/\\\n[ \t]*/g, "").
+
+    // handle escaped backticks
+    replace(/\\`/g, "`");
+
+    if (i < (arguments.length <= 1 ? 0 : arguments.length - 1)) {
+      result += arguments.length <= i + 1 ? undefined : arguments[i + 1];
+    }
+  }
+
+  // now strip indentation
+  var lines = result.split("\n");
+  var mindent = null;
+  lines.forEach(function (l) {
+    var m = l.match(/^(\s+)\S+/);
+    if (m) {
+      var indent = m[1].length;
+      if (!mindent) {
+        // this is the first indented line
+        mindent = indent;
+      } else {
+        mindent = Math.min(mindent, indent);
+      }
+    }
+  });
+
+  if (mindent !== null) {
+    result = lines.map(function (l) {
+      return l[0] === " " ? l.slice(mindent) : l;
+    }).join("\n");
+  }
+
+  // dedent eats leading and trailing whitespace too
+  result = result.trim();
+
+  // handle escaped newlines at the end to ensure they don't get stripped too
+  return result.replace(/\\n/g, "\n");
+}
+
+if (true) {
+  module.exports = dedent;
+}
+
+
+/***/ }),
+
 /***/ 8932:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -16376,11 +16443,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.autobuildRelease = exports.generateNotes = exports.uploadArtifact = exports.getRelease = void 0;
 const fs_1 = __nccwpck_require__(7147);
 const path_1 = __nccwpck_require__(1017);
 const mime_1 = __nccwpck_require__(9994);
+const dedent_1 = __importDefault(__nccwpck_require__(5281));
 const path = __importStar(__nccwpck_require__(1017));
 const util = __importStar(__nccwpck_require__(2629));
 function readResults(filename) {
@@ -16476,16 +16547,12 @@ const NOTES_HEADER = "## :dizzy: Installation instructions";
 function generateNotes(config, uploads) {
     const creds = config.public_release ? "" : " creds=github";
     const autobuildInstallCommands = uploads.map(u => `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`).join("\n");
-    const digests = uploads.map(u => `${u.package.sha1}  ${u.package.filename}`).join("\n");
-    let graphs = [];
-    for (const u of uploads) {
-        const mermaid = (0, fs_1.readFileSync)(u.mermaidGraphFile);
-        graphs.push(`#### ${u.package.platform}
+    const digests = uploads.map(u => `${u.package.sha1}  ${u.filename}`).join("\n");
+    const graphs = uploads.map(u => (0, dedent_1.default) `#### ${u.package.platform}
     \`\`\`mermaid
-    ${mermaid}
-    \`\`\``);
-    }
-    return `${NOTES_HEADER}
+    ${(0, fs_1.readFileSync)(u.mermaidGraphFile)}
+    \`\`\``).join("\n");
+    return (0, dedent_1.default) `${NOTES_HEADER}
   \`\`\`text
   ${autobuildInstallCommands}
   \`\`\`
@@ -16502,7 +16569,8 @@ function generateNotes(config, uploads) {
     <summary>Click to expand</summary>
 
     ${graphs}
-  </details>`;
+  </details>
+`;
 }
 exports.generateNotes = generateNotes;
 /**

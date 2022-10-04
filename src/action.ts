@@ -3,6 +3,7 @@ import { join as joinPath } from "path"
 import { GitHub } from "@actions/github/lib/utils"
 import { Config } from "./config"
 import { getType } from "mime"
+import dedent from "dedent"
 import * as path from "path"
 import * as util from "./util"
 
@@ -161,20 +162,15 @@ export function generateNotes(config: Config, uploads: UploadResult[]): string {
     `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
   ).join("\n")
 
-  const digests = uploads.map(u =>
-      `${u.package.sha1}  ${u.filename}`
+  const digests = uploads.map(u => `${u.package.sha1}  ${u.filename}`).join("\n")
+
+  const graphs = uploads.map(u => dedent`#### ${u.package.platform}
+    \`\`\`mermaid
+    ${readFileSync(u.mermaidGraphFile)}
+    \`\`\``
   ).join("\n")
 
-  let graphs: string[] = []
-  for (const u of uploads) {
-    const mermaid = readFileSync(u.mermaidGraphFile)
-    graphs.push(`#### ${u.package.platform}
-    \`\`\`mermaid
-    ${mermaid}
-    \`\`\``)
-  }
-
-  return `${NOTES_HEADER}
+  return dedent`${NOTES_HEADER}
   \`\`\`text
   ${autobuildInstallCommands}
   \`\`\`
@@ -191,7 +187,8 @@ export function generateNotes(config: Config, uploads: UploadResult[]): string {
     <summary>Click to expand</summary>
 
     ${graphs}
-  </details>`
+  </details>
+`
 }
 
 /**
