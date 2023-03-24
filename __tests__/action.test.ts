@@ -51,6 +51,57 @@ function makeRelease(): action.Release {
   }
 }
 
+function makeAsset(mixin: Object = {}): action.ReleaseAsset {
+  return {
+    url: "",
+    browser_download_url: "https://github.com/secondlife/action-autobuild-release/releases/download/v1/foo.tar.zst",
+    id: 1,
+    node_id: "",
+    name: "",
+    label: "",
+    state: "uploaded",
+    content_type: "",
+    size: 0,
+    download_count: 0,
+    created_at: "",
+    updated_at: "",
+    ...mixin,
+  }
+}
+
+function makeAutobuildResults(mixin: Object = {}): action.AutobuildResults {
+  return {
+    filename: "",
+    name: "",
+    clean: "",
+    metadata: "",
+    platform: "",
+    md5: "",
+    blake2b: "",
+    sha1: "",
+    sha256: "",
+    ...mixin,
+  }
+}
+
+describe("generateNotes", () => {
+  test("browser_download_url is used if release is public", async () => {
+    const upload = {asset: makeAsset(), package: makeAutobuildResults(), mermaidGraphFile: ""}
+    const config = loadConfig({GITHUB_REPOSITORY: "secondlife/action-autobuild-release", INPUT_PUBLIC: "true"})
+    const notes = action.generateNotes(config, [upload])
+    expect(notes).toContain(`url=${upload.asset.browser_download_url}`)
+    expect(notes).not.toContain("creds=github")
+  })
+
+  test("Release asset API URL is used if release is private", async () => {
+    const upload = {asset: makeAsset(), package: makeAutobuildResults(), mermaidGraphFile: ""}
+    const config = loadConfig({GITHUB_REPOSITORY: "secondlife/action-autobuild-release"})
+    const notes = action.generateNotes(config, [upload])
+    expect(notes).toContain(`url=https://api.github.com/repos/secondlife/action-autobuild-release/releases/assets/1`)
+    expect(notes).toContain("creds=github")
+  })
+})
+
 describe("getRelease", () => {
   const gh = getOctokit("TOKEN")
   const config = loadConfig({

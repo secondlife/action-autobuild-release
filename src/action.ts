@@ -153,11 +153,15 @@ export async function uploadArtifact(
 
 const NOTES_HEADER = "## :dizzy: Installation instructions"
 
+function downloadUrl(config: Config, asset: ReleaseAsset): string {
+  return config.public_release ? asset.browser_download_url : `https://api.github.com/repos/${config.github_repository}/releases/assets/${asset.id}`
+}
+
 export function generateNotes(config: Config, uploads: UploadResult[]): string {
   const creds = config.public_release ? "" : " creds=github"
 
   const autobuildInstallCommands = uploads.map(u =>
-    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${u.asset.browser_download_url} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
+    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${downloadUrl(config, u.asset)} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
   ).join("\n")
 
   return `${NOTES_HEADER}
