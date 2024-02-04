@@ -7,6 +7,7 @@ import * as path from "path"
 import * as fs from "fs"
 import * as action from "../src/action"
 import * as util from "../src/util"
+import * as models from "../src/models"
 
 // Spy on getArtifacts so that we can mock it
 jest.spyOn(util, "getArtifacts")
@@ -36,7 +37,7 @@ async function inWorkspace(cb: (tmpDir: string, pkgDir: string) => Promise<void>
   }
 }
 
-function makeRelease(): action.Release {
+function makeRelease(): models.Release {
   return {
     id: 1,
     upload_url: "",
@@ -51,8 +52,9 @@ function makeRelease(): action.Release {
   }
 }
 
-function makeAsset(mixin: Object = {}): action.ReleaseAsset {
+function makeAsset(mixin: Object = {}): models.GithubReleaseAsset {
   return {
+    type: "github-release",
     url: "",
     browser_download_url: "https://github.com/secondlife/action-autobuild-release/releases/download/v1/foo.tar.zst",
     id: 1,
@@ -69,7 +71,15 @@ function makeAsset(mixin: Object = {}): action.ReleaseAsset {
   }
 }
 
-function makeAutobuildResults(mixin: Object = {}): action.AutobuildResults {
+function makeS3Asset(mixin: Object = {}): models.S3Asset {
+  return {
+    type: "s3",
+    url: "https://my-bucket.s3.amazonaws.com/foo.tar.zst",
+    ...mixin,
+  }
+}
+
+function makeAutobuildResults(mixin: Object = {}): models.AutobuildResults {
   return {
     filename: "",
     name: "",
@@ -99,6 +109,14 @@ describe("generateNotes", () => {
     const notes = action.generateNotes(config, [upload])
     expect(notes).toContain(`url=https://api.github.com/repos/secondlife/action-autobuild-release/releases/assets/1`)
     expect(notes).toContain("creds=github")
+  })
+
+  test("url is used if release asset is uploaded to s3", async () => {
+    const upload = {asset: makeS3Asset(), package: makeAutobuildResults(), mermaidGraphFile: ""}
+    const config = loadConfig({GITHUB_REPOSITORY: "secondlife/action-autobuild-release", INPUT_PUBLIC: "true"})
+    const notes = action.generateNotes(config, [upload])
+    expect(notes).toContain(`url=${upload.asset.url}`)
+    expect(notes).not.toContain("creds=github")
   })
 })
 
@@ -153,29 +171,5 @@ describe("autobuildRelease", () => {
         .rejects
         .toThrow("No autobuild-results.json found in artifacts.")
       })
-  })
-})
-
-describe("uploadArtifact", () => {
-  const gh = getOctokit("TOKEN")
-  const config = loadConfig({
-    GITHUB_REPOSITORY: "secondlife/action-autobuild",
-    GITHUB_REF: "refs/tags/v1.0.0",
-  })
-
-  test("upload is skipped if file is missing", async () => {
-    const release = makeRelease()
-    await inWorkspace(async (tmpDir, pkgDir) => {
-      // Delete package
-      fs.unlinkSync(path.join(pkgDir, util.basename(BOGUS_PACKAGE)))
-      await expect(action.uploadArtifact(
-          config,
-          gh,
-          release,
-          {artifactName: "", downloadPath: pkgDir}
-        ))
-        .rejects
-        .toThrow(/Missing .+bogus-0.1-common-111.tar.zst$/)
-    })
   })
 })
