@@ -1,78 +1,17 @@
 import { existsSync, readFileSync } from "fs"
 import { join as joinPath } from "path"
 import { GitHub } from "@actions/github/lib/utils"
-import { Config } from "./config"
-import { getType } from "mime"
-import * as path from "path"
+import { Config, UploadDest } from "./config"
+import * as upload from "./upload"
 import * as util from "./util"
+import * as models from "./models"
 
 export type GitHub = InstanceType<typeof GitHub>
-
-export interface Release {
-  id: number
-  upload_url: string
-  html_url: string
-  tag_name: string
-  name: string | null
-  body?: string | null | undefined
-  target_commitish: string
-  draft: boolean
-  prerelease: boolean
-  assets: Array<{ id: number; name: string }>
-}
-
-export interface ReleaseAsset {
-  url: string
-  browser_download_url: string
-  id: number
-  node_id: string
-  name: string
-  label: string | null
-  state: "uploaded" | "open" 
-  content_type: string
-  size: number
-  download_count: number 
-  created_at: string
-  updated_at: string
-}
-
-export interface AutobuildResults {
-  filename: string
-  name: string
-  clean: string
-  metadata: string
-  platform: string 
-  md5: string
-  blake2b: string
-  sha1: string
-  sha256: string
-}
-
-export interface UploadResult {
-  package: AutobuildResults
-  asset: ReleaseAsset
-  mermaidGraphFile: string
-}
-
-function readResults(filename: string): AutobuildResults {
-  const results = JSON.parse(readFileSync(filename, "utf8"))
-  return {
-    blake2b: results["autobuild_package_blake2b"],
-    clean: results["autobuild_package_clean"],
-    filename: results["autobuild_package_filename"],
-    md5: results["autobuild_package_md5"],
-    metadata: results["autobuild_package_metadata"],
-    name: results["autobuild_package_name"],
-    platform: results["autobuild_package_platform"],
-    sha1: results["autobuild_package_sha1"],
-    sha256: results["autobuild_package_sha256"],
-  }
-}
 
 /**
  * Get or create a github release 
  */
-export async function getRelease(config: Config, gh: GitHub): Promise<Release> {
+export async function getRelease(config: Config, gh: GitHub): Promise<models.Release> {
   const tag = config.github_ref.replace("refs/tags/", "")
   const [owner, repo] = config.github_repository.split("/")
 
@@ -100,68 +39,24 @@ export async function getRelease(config: Config, gh: GitHub): Promise<Release> {
   return release.data
 }
 
-/**
- * Upload artifacts to a release
- */
-export async function uploadArtifact(
-  config: Config,
-  gh: GitHub,
-  release: Release,
-  artifact: util.DownloadResponse
-): Promise<UploadResult | null> {
-  const [owner, repo] = config.github_repository.split("/")
-  const resultsFile = path.join(artifact.downloadPath, "autobuild-results.json") 
-  const mermaidGraphFile = path.join(artifact.downloadPath, "autobuild-graph.mermaid")
-  const pkg = readResults(resultsFile) 
-  const name = util.basename(pkg.filename)
-  const existingAsset = release.assets.find(a => a.name == name)
-  const packagePath = path.join(artifact.downloadPath, name)
-  const packageType = getType(packagePath) || "application/octet-stream"
-
-  if (!existsSync(packagePath)) {
-    throw Error(`Missing ${packagePath}`)
-    return null
-  }
-
-  if (existingAsset) {
-    console.log(`♻️ Deleting previously uploaded asset ${name}...`);
-    await gh.rest.repos.deleteReleaseAsset({
-      asset_id: existingAsset.id,
-      owner,
-      repo,
-    })
-  }
-
-  console.log(`⬆️ Uploading ${name}...`);
-  const res = await gh.rest.repos.uploadReleaseAsset({
-    owner,
-    repo,
-    release_id: release.id,
-    name: name,
-    mediaType: {
-      format: packageType,
-    },
-    data: readFileSync(packagePath) as unknown as string, // Yikes, https://github.com/octokit/octokit.js/issues/2086
-  })
-
-  return {
-    package: pkg,
-    asset: res.data,
-    mermaidGraphFile: mermaidGraphFile,
-  }
-}
-
 const NOTES_HEADER = "## :dizzy: Installation instructions"
 
-function downloadUrl(config: Config, asset: ReleaseAsset): string {
-  return config.public_release ? asset.browser_download_url : `https://api.github.com/repos/${config.github_repository}/releases/assets/${asset.id}`
+function downloadUrl(config: Config, asset: models.ReleaseAsset): string {
+  if (asset.type === "s3") {
+    return asset.url
+  } else {
+    return config.public_release ? asset.browser_download_url : `https://api.github.com/repos/${config.github_repository}/releases/assets/${asset.id}`
+  }
 }
 
-export function generateNotes(config: Config, uploads: UploadResult[]): string {
-  const creds = config.public_release ? "" : " creds=github"
+function downloadCreds(config: Config, asset: models.ReleaseAsset): string {
+  return config.public_release ? "" : "creds=github"
+}
+
+export function generateNotes(config: Config, uploads: models.UploadResult[]): string {
 
   const autobuildInstallCommands = uploads.map(u =>
-    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${downloadUrl(config, u.asset)} hash_algorithm=sha1 hash=${u.package.sha1}${creds}`
+    `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${downloadUrl(config, u.asset)} hash_algorithm=sha1 hash=${u.package.sha1}${downloadCreds(config, u.asset)}`
   ).join("\n")
 
   return `${NOTES_HEADER}
@@ -169,6 +64,17 @@ export function generateNotes(config: Config, uploads: UploadResult[]): string {
   ${autobuildInstallCommands}
   \`\`\``
 }
+
+export function uploaderFor(scheme: string, config: Config, gh: GitHub): upload.ArtifactUploader {
+  switch (scheme) {
+    case "s3":
+      return new upload.S3ArtifactUploader(config)
+    case "github-release":
+      return new upload.GithubArtifactUploader(gh, config)
+    default:
+      throw Error(`Unknown upload scheme: ${scheme}`)
+  }
+} 
 
 /**
 * Preform release creation and asset upload 
@@ -185,16 +91,24 @@ export async function autobuildRelease(config: Config, gh: GitHub) {
   const release = await getRelease(config, gh)
 
   // Upload autobuild packages
-  let uploads: UploadResult[] = []
-  for (const artifact of autobuildArtifacts) {
-    const upload = await uploadArtifact(config, gh, release, artifact)
-    if (upload) {
-      uploads.push(upload)
+  let uploads: models.UploadResult[] = []
+  console.log(`Uploading to ${config.upload_to.length} destination(s)`)
+  for (const dest of config.upload_to) {
+    const uploader = uploaderFor(dest.scheme, config, gh)
+    for (const artifact of autobuildArtifacts) {
+      const upload = await uploader.upload({release, artifact, path: dest.path})
+      if (upload) {
+        uploads.push(upload)
+      }
     }
   }
 
+  // Select a single upload destination (s3 or release assets) to include in the autobuild
+  // install instructions. We could make this configurable in the future.
+  const assetTypeForInstructions = config.upload_to.length > 1 ? "s3" : "github-release" 
+
   // Create a pretty report
-  const notes = generateNotes(config, uploads)
+  const notes = generateNotes(config, uploads.filter(u => u.asset.type === assetTypeForInstructions))
 
   // Chop off prior instructions
   let body = release.body || "";

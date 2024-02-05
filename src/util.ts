@@ -1,9 +1,5 @@
 import * as artifactToolkit from '@actions/artifact';
-
-export interface DownloadResponse {
-    artifactName: string;
-    downloadPath: string;
-}
+import * as models from "./models"
 
 export function isTag(ref: string): boolean {
     return ref.startsWith("refs/tags/")
@@ -12,7 +8,7 @@ export function isTag(ref: string): boolean {
 /**
  * Download all artifacts
  */
-export async function getArtifacts(): Promise<DownloadResponse[]> {
+export async function getArtifacts(): Promise<models.DownloadResponse[]> {
     const client = artifactToolkit.create()
     return client.downloadAllArtifacts("artifacts")
 }

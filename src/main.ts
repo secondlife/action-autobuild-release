@@ -9,6 +9,9 @@ export async function run(env: Env = process.env): Promise<void> {
     if (!isTag(config.github_ref)) {
       throw new Error(`⚠️ Autobuild Release requires a tag`)
     }
+    if (config.upload_to.length === 0) {
+      throw new Error(`⚠️ Autobuild Release requires at least one upload destination`)
+    }
     const gh = getOctokit(config.github_token)
     await autobuildRelease(config, gh)
   }
