@@ -100,7 +100,7 @@ describe("generateNotes", () => {
     const config = loadConfig({GITHUB_REPOSITORY: "secondlife/action-autobuild-release", INPUT_PUBLIC: "true"})
     const notes = action.generateNotes(config, [upload])
     expect(notes).toContain(`url=${upload.asset.browser_download_url}`)
-    expect(notes).not.toContain("creds=github")
+    expect(notes).not.toContain(" creds=github")
   })
 
   test("Release asset API URL is used if release is private", async () => {
@@ -108,7 +108,7 @@ describe("generateNotes", () => {
     const config = loadConfig({GITHUB_REPOSITORY: "secondlife/action-autobuild-release"})
     const notes = action.generateNotes(config, [upload])
     expect(notes).toContain(`url=https://api.github.com/repos/secondlife/action-autobuild-release/releases/assets/1`)
-    expect(notes).toContain("creds=github")
+    expect(notes).toContain(" creds=github")
   })
 
   test("url is used if release asset is uploaded to s3", async () => {
