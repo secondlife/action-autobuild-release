@@ -50,7 +50,7 @@ function downloadUrl(config: Config, asset: models.ReleaseAsset): string {
 }
 
 function downloadCreds(config: Config, asset: models.ReleaseAsset): string {
-  return config.public_release ? "" : "creds=github"
+  return config.public_release ? "" :  " creds=github"
 }
 
 export function generateNotes(config: Config, uploads: models.UploadResult[]): string {

@@ -49451,7 +49451,7 @@ function downloadUrl(config, asset) {
     }
 }
 function downloadCreds(config, asset) {
-    return config.public_release ? "" : "creds=github";
+    return config.public_release ? "" : " creds=github";
 }
 function generateNotes(config, uploads) {
     const autobuildInstallCommands = uploads.map(u => `autobuild installables edit ${u.package.name} platform=${u.package.platform} url=${downloadUrl(config, u.asset)} hash_algorithm=sha1 hash=${u.package.sha1}${downloadCreds(config, u.asset)}`).join("\n");
