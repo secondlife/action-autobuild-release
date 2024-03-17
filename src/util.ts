@@ -1,4 +1,4 @@
-import * as artifactToolkit from '@actions/artifact';
+import { DefaultArtifactClient } from '@actions/artifact';
 import * as models from "./models"
 
 export function isTag(ref: string): boolean {
@@ -9,8 +9,15 @@ export function isTag(ref: string): boolean {
  * Download all artifacts
  */
 export async function getArtifacts(): Promise<models.DownloadResponse[]> {
-    const client = artifactToolkit.create()
-    return client.downloadAllArtifacts("artifacts")
+    const client = new DefaultArtifactClient() 
+    const res = await client.listArtifacts()
+    const artifacts: models.DownloadResponse[] = []
+    for (const artifact of res.artifacts) {
+        const downloadRes = await client.downloadArtifact(artifact.id)
+        console.log(`Downloaded artifact ${artifact.name} to ${downloadRes.downloadPath}`)
+        artifacts.push({ artifactName: artifact.name, downloadPath: downloadRes.downloadPath ?? "" })
+    }
+    return artifacts
 }
 
 export function basename(name: string): string {
