@@ -13,7 +13,8 @@ export async function getArtifacts(): Promise<models.DownloadResponse[]> {
     const res = await client.listArtifacts()
     const artifacts: models.DownloadResponse[] = []
     for (const artifact of res.artifacts) {
-        const downloadRes = await client.downloadArtifact(artifact.id)
+        const path = basename(artifact.name)
+        const downloadRes = await client.downloadArtifact(artifact.id, {path})
         console.log(`Downloaded artifact ${artifact.name} to ${downloadRes.downloadPath}`)
         artifacts.push({ artifactName: artifact.name, downloadPath: downloadRes.downloadPath ?? "" })
     }
