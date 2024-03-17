@@ -83,7 +83,7 @@ export async function autobuildRelease(config: Config, gh: GitHub) {
   // Download artifacts
   const artifacts = await util.getArtifacts()
   console.log(`Found ${artifacts.length} artifacts`)
-  for (const artifact of autobuildArtifacts) {
+  for (const artifact of artifacts) {
     console.log(`Download ${artifact.downloadPath}`)
   }
   const autobuildArtifacts = artifacts.filter(a => existsSync(joinPath(a.downloadPath, "autobuild-results.json")))
