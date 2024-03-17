@@ -82,6 +82,10 @@ export function uploaderFor(scheme: string, config: Config, gh: GitHub): upload.
 export async function autobuildRelease(config: Config, gh: GitHub) {
   // Download artifacts
   const artifacts = await util.getArtifacts()
+  console.log(`Found ${artifacts.length} artifacts`)
+  for (const artifact of autobuildArtifacts) {
+    console.log(`Download ${artifact.downloadPath}`)
+  }
   const autobuildArtifacts = artifacts.filter(a => existsSync(joinPath(a.downloadPath, "autobuild-results.json")))
   if (autobuildArtifacts.length === 0) {
     throw Error("No autobuild-results.json found in artifacts.") 
